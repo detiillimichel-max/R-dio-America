@@ -3,24 +3,22 @@
  * Localização: js/services/radioService.js
  */
 
-const API_BASE_URL = 'https://de1.api.radio-browser.info/json';
+const API_BASE_URL = 'https://at1.api.radio-browser.info/json';
 
 export const radioService = {
     /**
-     * Busca estações do Brasil e de países da América Latina
-     * @param {number} limite - Quantidade de estações por busca
+     * Busca estações da América Latina (Brasil, Argentina, México)
+     * @param {number} limite - Quantidade de estações
      */
-    async buscarEstacoesAmérica(limite = 20) {
+    async buscarEstacoesAmérica(limite = 15) {
         try {
-            // Códigos ISO dos países da América Latina para busca
-            // BR (Brasil), AR (Argentina), CL (Chile), CO (Colômbia), MX (México)
-            const countryCodes = 'BR,AR,CL,CO,MX';
+            const countryCodes = 'BR,AR,MX';
             
             const params = new URLSearchParams({
                 countrycode: countryCodes,
                 limit: limite,
-                hidebroken: true, // Filtra apenas links ativos
-                order: 'votes',   // Prioriza as rádios com melhor avaliação
+                hidebroken: true,
+                order: 'clickcount', 
                 reverse: true
             });
 
@@ -32,20 +30,24 @@ export const radioService = {
             
             const data = await response.json();
             
-            // Tratamento dos dados para o formato do nosso Player
             return data.map(estacao => ({
                 id: estacao.stationuuid,
                 nome: estacao.name,
-                url: estacao.url_resolved, // Link direto para o player de áudio
-                logo: estacao.favicon || 'img/default-radio.png', // Logo da rádio ou padrão
+                url: estacao.url_resolved, 
+                logo: estacao.favicon || 'img/default-radio.png',
                 pais: estacao.countrycode,
                 genero: estacao.tags
             }));
             
         } catch (error) {
             console.error("Erro no RadioService:", error);
-            return []; // Retorna lista vazia para evitar quebras no app
+            return [{
+                id: 'offline',
+                nome: 'Modo Offline ou Erro de Conexão',
+                url: '',
+                logo: '',
+                pais: 'N/A'
+            }];
         }
     }
 };
-
