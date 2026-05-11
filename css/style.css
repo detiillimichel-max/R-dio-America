@@ -1,0 +1,65 @@
+/* ════════════════════════════════════════
+   Rádio-América — css/style.css
+════════════════════════════════════════ */
+
+* { box-sizing: border-box; }
+
+.glass-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 12px 36px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.glass-button:hover    { background: rgba(255,255,255,0.25); transform: scale(1.03); }
+.glass-button:active   { transform: scale(0.98); }
+.glass-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+#orbital-nav {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 12px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.station-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 6px 0;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  text-align: left;
+}
+.station-item:hover  { background: rgba(255,255,255,0.14); }
+.station-item.active {
+  border-color: rgba(100, 200, 255, 0.5);
+  background: rgba(100, 200, 255, 0.12);
+}
+
+#station-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  min-height: 28px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  }
