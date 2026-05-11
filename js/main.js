@@ -1,73 +1,122 @@
 /**
- * Rádio-América — js/services/radioService.js
- * FIX: countrycode não aceita múltiplos países na mesma query.
- *      Fazemos uma requisição por país e combinamos os resultados.
+ * Rádio-América — js/main.js
+ * FIX: checar estacaoAtual em vez de mainPlayer.src (src nunca é vazio após assignment)
  */
 
-// Servidores espelho do Radio Browser (fallback automático)
-const MIRRORS = [
-  'https://de1.api.radio-browser.info/json',
-  'https://nl1.api.radio-browser.info/json',
-  'https://at1.api.radio-browser.info/json'
-];
+import { radioService } from './services/radioService.js';
 
-async function fetchWithFallback(path, params) {
-  for (const base of MIRRORS) {
-    try {
-      const url      = `${base}${path}?${new URLSearchParams(params)}`;
-      const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
-      if (response.ok) return await response.json();
-    } catch {
-      // tenta o próximo espelho
-    }
+const stationName = document.getElementById('station-name');
+const btnPlay     = document.getElementById('btn-play');
+const mainPlayer  = document.getElementById('main-player');
+const orbitalNav  = document.getElementById('orbital-nav');
+
+let estacoes      = [];
+let estacaoAtual  = null;   // ← flag confiável de seleção
+let carregando    = false;
+
+/* ── Inicialização ── */
+const init = async () => {
+  stationName.innerText = 'Buscando rádios…';
+  btnPlay.disabled      = true;
+
+  estacoes = await radioService.buscarEstacoesAmérica(6);
+
+  if (estacoes && estacoes.length > 0) {
+    renderizarLista(estacoes);
+    stationName.innerText = 'Rádio América';
+  } else {
+    stationName.innerText = 'Sem conexão com o servidor de rádios.';
+    orbitalNav.innerHTML  = '<p style="opacity:.6;font-size:13px">Tente recarregar a página.</p>';
   }
-  return null;
-}
 
-export const radioService = {
-  /**
-   * Busca estações de BR, AR e MX separadamente e mescla os resultados.
-   * @param {number} porPais - estações por país
-   */
-  async buscarEstacoesAmérica(porPais = 6) {
-    const paises = ['BR', 'AR', 'MX'];
-    const params  = {
-      limit:       porPais,
-      hidebroken:  'true',
-      order:       'clickcount',
-      reverse:     'true'
-    };
+  btnPlay.disabled = false;
+};
 
-    try {
-      const promises = paises.map(code =>
-        fetchWithFallback('/stations/search', { ...params, countrycode: code })
-      );
+/* ── Renderiza lista de estações ── */
+const renderizarLista = (lista) => {
+  orbitalNav.innerHTML = '';
 
-      const resultados = await Promise.allSettled(promises);
-      const estacoes   = [];
+  lista.forEach(estacao => {
+    const item = document.createElement('div');
+    item.className = 'station-item';
 
-      resultados.forEach(r => {
-        if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-          r.value.forEach(e => {
-            if (e.url_resolved) {           // ignora estações sem URL válida
-              estacoes.push({
-                id:     e.stationuuid,
-                nome:   e.name.trim(),
-                url:    e.url_resolved,
-                logo:   e.favicon || '',
-                pais:   e.countrycode,
-                genero: e.tags || ''
-              });
-            }
-          });
-        }
-      });
+    const flagEmoji = { BR: '🇧🇷', AR: '🇦🇷', MX: '🇲🇽' }[estacao.pais] || '📻';
 
-      return estacoes.length > 0 ? estacoes : null;
+    item.innerHTML = `
+      <img
+        src="${estacao.logo || ''}"
+        onerror="this.style.display='none'"
+        style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0"
+      >
+      <div style="min-width:0">
+        <div style="font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${flagEmoji} ${escHtml(estacao.nome)}
+        </div>
+        <div style="font-size:11px;opacity:.6">${estacao.pais} ${estacao.genero ? '· ' + estacao.genero.split(',')[0] : ''}</div>
+      </div>
+    `;
 
-    } catch (error) {
-      console.error('RadioService erro:', error);
-      return null;
-    }
+    item.onclick = () => sintonizarRadio(estacao);
+    orbitalNav.appendChild(item);
+  });
+};
+
+/* ── Sintoniza uma estação ── */
+const sintonizarRadio = async (estacao) => {
+  if (!estacao.url) {
+    stationName.innerText = 'Estação indisponível';
+    return;
+  }
+
+  estacaoAtual          = estacao;
+  stationName.innerText = `⏳ ${estacao.nome}`;
+  btnPlay.innerText     = 'Carregando…';
+  btnPlay.disabled      = true;
+
+  mainPlayer.src = estacao.url;
+
+  // Marca visualmente o item ativo
+  document.querySelectorAll('.station-item').forEach(el =>
+    el.classList.remove('active'));
+  event?.currentTarget?.classList.add('active');
+
+  try {
+    await mainPlayer.play();
+    stationName.innerText = `▶ ${estacao.nome}`;
+    btnPlay.innerText     = 'Pausar';
+  } catch (err) {
+    console.error('Erro ao dar play:', err);
+    stationName.innerText = `❌ ${estacao.nome} — sem sinal`;
+    btnPlay.innerText     = 'Sintonizar';
+    estacaoAtual          = null;
+  } finally {
+    btnPlay.disabled = false;
   }
 };
+
+/* ── Botão Play / Pausar ── */
+btnPlay.onclick = () => {
+  // FIX: usa flag estacaoAtual, não mainPlayer.src
+  if (!estacaoAtual) {
+    stationName.innerText = 'Selecione uma rádio acima ↑';
+    return;
+  }
+
+  if (mainPlayer.paused) {
+    mainPlayer.play().catch(console.error);
+    stationName.innerText = `▶ ${estacaoAtual.nome}`;
+    btnPlay.innerText     = 'Pausar';
+  } else {
+    mainPlayer.pause();
+    stationName.innerText = `⏸ ${estacaoAtual.nome}`;
+    btnPlay.innerText     = 'Sintonizar';
+  }
+};
+
+/* ── Utilitário ── */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+init();
